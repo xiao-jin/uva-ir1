@@ -14,6 +14,9 @@ def get_doc_list():
     docs = read_ap.get_processed_docs()
     return list(map(list, docs.values()))
 
+def get_doc_keys():
+    docs = read_ap.get_processed_docs()
+    return list(docs.keys())
 
 def get_frequent_tokens(docs, min_threshold=50):
     tokens = {}

@@ -13,6 +13,7 @@ import pytrec_eval
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 doc_list = doc_processor.get_doc_list()
+doc_keys = doc_processor.get_doc_keys()
 print('Number of docs:', len(doc_list))
 
 counter = 0
@@ -57,9 +58,9 @@ def test(mode):
     for qid in tqdm(qrels): 
         query_text = queries[qid]
         vec_qry = dictionary.doc2bow(query_text.lower().split())
-        # print(query_text)
+        
         results = lsi_model[vec_qry]
-        # print(results)
+        results = [(str(keys[x]), float(y)) for (x, y) in results]
         overall_ser[qid] = dict(results)
 
     # run evaluation with `qrels` as the ground truth relevance judgements
