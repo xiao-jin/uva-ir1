@@ -37,8 +37,8 @@ corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=False)
 tfidf_corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=True)
 
 
-lsi_model = LsiModel.load('./saved_models/lsi_model_bow')
-# lsi_model_tfidf = LsiModel.load('./saved_models/lsi_model_tfidf')
+lsi_model = LsiModel.load('./test_models/lsi_model_bow.pt')
+# lsi_model_tfidf = LsiModel.load('./test_models/lsi_model_tfidf.pt')
 # lsi_model.id2word = id2word
 
 

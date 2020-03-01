@@ -48,12 +48,13 @@ def train_lsa(is_tfidf, num_topics):
     chunksize = 20000
 
     start = time.time()
+    temp = dictionary[0]
     id2word = dictionary.id2token
     print('Start LSI training')
 
     lsi_model = LsiModel(
         corpus=corpus,
-        # id2word=id2word,
+        id2word=id2word,
         num_topics=num_topics,
         chunksize=chunksize,
     )
