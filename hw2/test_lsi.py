@@ -8,6 +8,7 @@ from tqdm import tqdm
 from gensim.corpora import Dictionary
 from gensim import similarities
 from gensim.models import LsiModel
+import pytrec_eval
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
@@ -31,18 +32,9 @@ print('Number of infrequent tokens:', counter)
 # Create gensim dictionaries
 print('Create dictionary')
 dictionary = Dictionary(docs_matrix)
-id2word = dictionary.id2token
 
-corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=False)
-tfidf_corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=True)
-
-
-lsi_model = LsiModel.load('./test_models/lsi_model_bow.pt')
-# lsi_model_tfidf = LsiModel.load('./test_models/lsi_model_tfidf.pt')
-# lsi_model.id2word = id2word
-
-
-# index = similarities.MatrixSimilarity(lsi_model[corpus]) 
+# corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=False)
+# tfidf_corpus = doc_processor.create_corpus(dictionary, doc_list, is_tfidf=True)
 
 # ensure dataset is downloaded
 download_ap.download_dataset()
@@ -54,28 +46,36 @@ docs_by_id = read_ap.get_processed_docs()
 # read in the qrels
 qrels, queries = read_ap.read_qrels()
 
-print(lsi_model.show_topics())
+# print(lsi_model.show_topics())
 
 overall_ser = {}
 
-print("Running TFIDF Benchmark")
-# collect results
-for qid in tqdm(qrels): 
-    query_text = queries[qid]
-    vec_qry = dictionary.doc2bow(query_text.lower().split())
-    print(query_text)
-    results = lsi_model[vec_qry]
-    overall_ser[qid] = dict(results)
+def test(mode):
+    lsi_model = LsiModel.load('./test_models/lsi_model_{}.pt'.format(mode))
+    print("Running %s Benchmark" % mode.upper())
+    # collect results
+    for qid in tqdm(qrels): 
+        query_text = queries[qid]
+        vec_qry = dictionary.doc2bow(query_text.lower().split())
+        # print(query_text)
+        results = lsi_model[vec_qry]
+        # print(results)
+        overall_ser[qid] = dict(results)
 
-# run evaluation with `qrels` as the ground truth relevance judgements
-# here, we are measuring MAP and NDCG, but this can be changed to 
-# whatever you prefer
-# evaluator = pytrec_eval.RelevanceEvaluator(qrels, {'map', 'ndcg'})
-metrics = evaluator.evaluate(overall_ser)
+    # run evaluation with `qrels` as the ground truth relevance judgements
+    # here, we are measuring MAP and NDCG, but this can be changed to 
+    # whatever you prefer
+    evaluator = pytrec_eval.RelevanceEvaluator(qrels, {'map', 'ndcg'})
+    metrics = evaluator.evaluate(overall_ser)
 
-# dump this to JSON
-# *Not* Optional - This is submitted in the assignment!
-with open("tf-idf.json", "w") as writer:
-    json.dump(metrics, writer, indent=1)
+    # dump this to JSON
+    # *Not* Optional - This is submitted in the assignment!
+    with open("lsi-{}.json".format(mode), "w") as writer:
+        json.dump(metrics, writer, indent=1)
 
-pass
+modes = ['bow', 'tfidf']
+
+for mode in modes:
+    test(mode)
+
+# lsi_model_tfidf = LsiModel.load('./test_models/lsi_model_tfidf.pt')
