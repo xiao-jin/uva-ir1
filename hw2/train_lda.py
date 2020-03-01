@@ -13,10 +13,11 @@ import doc_processor
 import read_ap
 from gensim.corpora import Dictionary
 from gensim.models import LdaModel
+from gensim.models import ldamulticore
 
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
-doc_list = doc_processor.get_doc_list()[:100]
+doc_list = doc_processor.get_doc_list()
 print('Number of docs:', len(doc_list))
 
 counter = 0
@@ -44,9 +45,10 @@ def train_lda(is_tfidf, num_topics):
 
     # Set training parameters.
     num_topics = num_topics
-    chunksize = 2000
-    passes = 20
-    iterations = 400
+    chunksize = 20000
+    # passes = 20
+    # iterations = 400
+    eval_every = None
 
     print('Start LDI training')
     start = time.time()
@@ -54,11 +56,14 @@ def train_lda(is_tfidf, num_topics):
 
     lda_model = LdaModel(
         corpus=corpus,
-        id2word=id2word,
+        # id2word=id2word,
         chunksize=chunksize,
+        # alpha='auto',
+        # eta='auto',
         num_topics=num_topics,
-        passes=passes,
-        iterations=iterations,
+        # passes=passes,
+        # iterations=iterations,
+        eval_every=eval_every
     )
     
     ir_method = 'tfidf'  if is_tfidf else 'bow'
@@ -72,17 +77,17 @@ if __name__ == "__main__":
         print(args)
         for i in range(0, len(args), 2):
             arguments.append((args[i], [int(x) for x in args[i+1].split(',')]))
-
-        for arg in arguments:
-            print(arg[0], arg[1])
-            is_tfidf = True if arg[0] == 'tfidf' else False
-
-            for num_topics in arg[1]:
-                train_lda(is_tfidf, num_topics)
-
     except:
         raise Exception('Arguments format: IRMethod 20,500,1000')
 
+    for arg in arguments:
+        print(arg[0], arg[1])
+        is_tfidf = True if arg[0] == 'tfidf' else False
+
+        for num_topics in arg[1]:
+            train_lda(is_tfidf, num_topics)
+
+
     
 # Run it with command
-# python lda.py tfidf 10,50,100,500,1000,2000
+# python train_lda.py tfidf 10,50,100,500,1000,2000

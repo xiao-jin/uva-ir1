@@ -53,7 +53,7 @@ def train_lsa(is_tfidf, num_topics):
 
     lsi_model = LsiModel(
         corpus=corpus,
-        id2word=id2word,
+        # id2word=id2word,
         num_topics=num_topics,
         chunksize=chunksize,
     )
@@ -71,16 +71,16 @@ if __name__ == "__main__":
         print(args)
         for i in range(0, len(args), 2):
             arguments.append((args[i], [int(x) for x in args[i+1].split(',')]))
-
-        for arg in arguments:
-            print(arg[0], arg[1])
-            is_tfidf = True if arg[0] == 'tfidf' else False
-
-            for num_topics in arg[1]:
-                train_lsa(is_tfidf, num_topics)
-
     except:
         raise Exception('Arguments format: IRMethod 20,500,1000')
 
+    for arg in arguments:
+        print(arg[0], arg[1])
+        is_tfidf = True if arg[0] == 'tfidf' else False
+
+        for num_topics in arg[1]:
+            train_lsa(is_tfidf, num_topics)
+
+
 # Run it with command
-# python lsa.py bow 10,50,100,1000,2000 tfidf 10,50,100,1000,2000
+# python train_lsi.py bow 10,50,100,1000,2000 tfidf 10,50,100,1000,2000

@@ -17,6 +17,12 @@ def get_doc_list():
 
 def get_frequent_tokens(docs, min_threshold=50):
     tokens = {}
+
+    # Remove numbers, but not words that contain numbers.
+    docs = [[token for token in doc if not token.isnumeric()] for doc in docs]
+
+    # Remove words that are only one character.
+    docs = [[token for token in doc if len(token) > 1] for doc in docs]
     
     for doc in tqdm(docs):
         for token in doc:
