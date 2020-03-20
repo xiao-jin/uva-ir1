@@ -18,7 +18,7 @@ DEFAULT_BATCH_SIZE = 64
 DEFAULT_LEARNING_RATE = 1e-2
 DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
-DEFAULT_NEG_SLOP = 0.001
+DEFAULT_NEG_SLOP = 0.02
 PRINT_EVERY = 50
 
 def main():
@@ -35,29 +35,31 @@ def main():
 
     for epoch in range(1, DEFAULT_EPOCHS+1):
         start = time.time()
-        # for i in range(data.train.num_queries()):
         for i, batch in enumerate(X_batched):
+        # for i in range(len(data.train.feature_matrix)):
+        #     # xj = [data.train.feature_matrix[j] for j in range(i + 1, len(data.train.feature_matrix))]
+        #     for j in range(i + 1, len(data.train.feature_matrix)):
             ranknet.train()
             batch_start = time.time()
             optimizer.zero_grad()
 
-            # batch = data.train.query_feat(i)
-            # if batch.shape[0] < 2:
-            #     continue
+            # xi = torch.tensor(data.train.feature_matrix[i]).float().to(device)
+            # xj = torch.tensor(data.train.feature_matrix[j]).float().to(device)
+            
+            comb = list(itertools.combinations(batch, 2))
+            x1, x2 = torch.tensor(list(zip(*comb))).float()
 
-            output = ranknet.forward(batch)
+            s1, s2 = ranknet.forward(x1, x2)
 
+            S_ij = get_labels(y_batched[i])
 
-            # labels = get_labels(data.train.query_labels(i))
-            labels = get_labels(y_batched[i])
-
-
-            loss = ranknet.loss2(labels, output)
+            loss = ranknet.loss(S_ij, s1, s2)
 
             if torch.isnan(loss):
+                raise Exception('Got NaN')
                 continue
 
-            train_loss.append(loss.detach().item())
+            train_loss.append(loss.item())
 
             loss.backward()
             optimizer.step()
@@ -66,23 +68,26 @@ def main():
                 print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (loss.item(), epoch, i, len(X_batched), time.time() - batch_start))
                 # print('TRAIN LOSS [{}] | EPOCH [{}] | i = {} j = {} | {} seconds'.format(np.mean(train_loss), epoch, i, j, len(X_batched), time.time() - batch_start))
 
-
-        test_model(ranknet, data, validation=True)
+            if i >= 0 and i % DEFAULT_EVALUATION_FREQ == 0:
+                test_model(ranknet, data, validation=True)
 
         print('Epoch %i took %f second' % (epoch, time.time() - start))
 
     test_model(ranknet, data, validation=False)
 
-
+    
 def get_labels(labels):
+    """
+    Get labels based on the documents relevance
+    """
     label_list = []
     ys = list(itertools.combinations(labels, 2))
-    for label_i, label_j in ys:
-        if label_i > label_j:
+    for i, j in ys:
+        if i > j:
             label = 1
-        elif label_i < label_j:
+        elif i < j:
             label = -1
-        elif label_i == label_j:
+        elif i == j:
             label = 0
         label_list.append(label)
 
@@ -99,15 +104,22 @@ def test_model(ranknet, data, validation=False):
         y_batched = [data.test.label_vector[i:i+DEFAULT_BATCH_SIZE] for i in range(0, len(data.test.label_vector), DEFAULT_BATCH_SIZE)][0:-1]
 
     total_loss = 0
+    validation_scores = torch.tensor([])
 
     with torch.no_grad():
         for i, batch in enumerate(X_batched):
-            s1, s2 = ranknet.forward(batch)
+            comb = list(itertools.combinations(batch, 2))
+            x1, x2 = torch.tensor(list(zip(*comb))).float()
+            s1, s2 = ranknet.forward(x1, x2)
 
-            labels = get_labels(y_batched[i])
+            S_ij = get_labels(y_batched[i])
 
-            loss = ranknet.loss(labels, s1, s2)
+            loss = ranknet.loss(labels, S_ij, s1, s2)
             total_loss += loss.item()
+            validation_scores += s2.clone().detach().numpy()[:,1,:]
+        
+
+        results = evl.evaluate(labels.numpy(), output.numpy(), print_results=True)
 
         total_loss = total_loss / len(X_batched)
 

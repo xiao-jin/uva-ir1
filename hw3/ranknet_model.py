@@ -28,45 +28,36 @@ class RankNet(nn.Module):
 
         self.layers.append(nn.Linear(input_size, 128))
         self.layers.append(nn.ReLU())
-        
-        self.layers.append(nn.Linear(128, 512))
+
+        self.layers.append(nn.Linear(128, 64))
         self.layers.append(nn.ReLU())
 
-        self.layers.append(nn.Linear(512, 64))
+        self.layers.append(nn.Linear(64, 32))
         self.layers.append(nn.ReLU())
-        
-        self.layers.append(nn.Linear(64, output_size))
-        
-        
 
-    def forward(self, x):
+        self.layers.append(nn.Linear(32, output_size))        
+
+    def forward(self, x1, x2):
         """
         Gets a vector of documents
         Create all combinations
         """
-        comb = list(itertools.combinations(x, 2))
-        # x1 = torch.tensor([item1 for (item1, item2) in comb]).float()
-        # x2 = torch.tensor([item2 for (item1, item2) in comb]).float()
-
-        # x1, x2 = torch.tensor(list(zip(*comb))).float()
-
-        input = torch.tensor(comb).float()
-
-        # s1 = self.layers(x1)
-        # s2 = self.layers(x2)
+        input = torch.cat((x1, x2))
 
         # s1 = self.step(x1)
         # s2 = self.step(x2)
 
         output = self.step(input)
+        s1, s2 = torch.chunk(output, 2, dim=0)
 
         # for name, param in self.named_parameters():
         #     if param.requires_grad:
         #         print(name, param.data)
         if torch.isnan(output).sum().item():
             print(output)
+            raise Exception('Got NaN')
 
-        return output
+        return s1, s2
 
     def step(self, input):
         for layer in self.layers:
@@ -76,30 +67,15 @@ class RankNet(nn.Module):
         
         return input
 
-    def loss2(self, labels, input):
-        s1 = input[:,0,:]
-        s2 = input[:,1,:]
-        
+    def weights(self):
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                print(name, param.data)
+
+
+    def loss(self, S_ij, s1, s2):
         sig = self.sigma * (s1 - s2)
-        c = 0.5 * (1 - labels.view(-1, 1)) * sig + torch.log(1 + torch.exp(-sig))
-
-        if torch.isnan(c).sum().item():
-            print(c.sum())
-        return c.sum()
-
-
-    def loss(self, labels, s1, s2):
-        s = torch.zeros_like(s1)
-
-        for i in range(len(s1)):
-            if s1[i] > s2[i]:
-                s[i] = 1
-            elif s1[i] < s2[i]:
-                s[i] = -1
-            elif s1[i] == s2[i]:
-                s[i] = 0
-        sig = self.sigma * (s1 - s2)
-        c = 0.5 * (1 - labels) * sig + torch.log(1 + torch.exp(-sig))
+        c = 0.5 * (1 - S_ij.view(-1, 1)) * sig + torch.log(1 + torch.exp(-sig))
 
         if torch.isnan(c).sum().item():
             print(c.sum())
