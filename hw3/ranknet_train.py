@@ -15,10 +15,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # HYPER PARAMS
 DEFAULT_BATCH_SIZE = 64
-DEFAULT_LEARNING_RATE = 0.0002
+DEFAULT_LEARNING_RATE = 1e-2
 DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
-DEFAULT_NEG_SLOP = 0.02
+DEFAULT_NEG_SLOP = 0.001
 PRINT_EVERY = 50
 
 def main():
@@ -35,32 +35,35 @@ def main():
 
     for epoch in range(1, DEFAULT_EPOCHS+1):
         start = time.time()
+        # for i in range(data.train.num_queries()):
         for i, batch in enumerate(X_batched):
-        # for i in range(len(data.train.feature_matrix)):
-        #     # xj = [data.train.feature_matrix[j] for j in range(i + 1, len(data.train.feature_matrix))]
-        #     for j in range(i + 1, len(data.train.feature_matrix)):
             ranknet.train()
             batch_start = time.time()
             optimizer.zero_grad()
 
-            # xi = torch.tensor(data.train.feature_matrix[i]).float().to(device)
-            # xj = torch.tensor(data.train.feature_matrix[j]).float().to(device)
-            s1, s2 = ranknet.forward(batch)
+            # batch = data.train.query_feat(i)
+            # if batch.shape[0] < 2:
+            #     continue
 
+            output = ranknet.forward(batch)
+
+
+            # labels = get_labels(data.train.query_labels(i))
             labels = get_labels(y_batched[i])
 
-            loss = ranknet.loss(labels, s1, s2)
+
+            loss = ranknet.loss2(labels, output)
 
             if torch.isnan(loss):
                 continue
 
-            train_loss.append(loss.item())
+            train_loss.append(loss.detach().item())
 
             loss.backward()
             optimizer.step()
             
             if i % PRINT_EVERY == 0:
-                print('TRAIN LOSS [{}] | EPOCH [{}] | BATCH [{} / {}] | {} seconds'.format(loss.item(), epoch, i, len(X_batched), time.time() - batch_start))
+                print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (loss.item(), epoch, i, len(X_batched), time.time() - batch_start))
                 # print('TRAIN LOSS [{}] | EPOCH [{}] | i = {} j = {} | {} seconds'.format(np.mean(train_loss), epoch, i, j, len(X_batched), time.time() - batch_start))
 
 

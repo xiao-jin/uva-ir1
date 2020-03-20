@@ -26,15 +26,15 @@ class RankNet(nn.Module):
         self.layers = nn.ModuleList()
 
 
-        self.layers.append(nn.Linear(input_size, 128, bias=True))
-        self.layers.append(nn.LeakyReLU(neg_slope))
-        # self.layers.append(nn.BatchNorm1d(128))
-        self.layers.append(nn.Linear(128, 512, bias=True))
-        self.layers.append(nn.LeakyReLU(neg_slope))
-        # self.layers.append(nn.BatchNorm1d(512))
-        self.layers.append(nn.Linear(512, 64, bias=True))
-        self.layers.append(nn.LeakyReLU(neg_slope))
-        # self.layers.append(nn.BatchNorm1d(64))
+        self.layers.append(nn.Linear(input_size, 128))
+        self.layers.append(nn.ReLU())
+        
+        self.layers.append(nn.Linear(128, 512))
+        self.layers.append(nn.ReLU())
+
+        self.layers.append(nn.Linear(512, 64))
+        self.layers.append(nn.ReLU())
+        
         self.layers.append(nn.Linear(64, output_size))
         
         
@@ -48,21 +48,25 @@ class RankNet(nn.Module):
         # x1 = torch.tensor([item1 for (item1, item2) in comb]).float()
         # x2 = torch.tensor([item2 for (item1, item2) in comb]).float()
 
-        x1, x2 = torch.tensor(list(zip(*comb))).float()
+        # x1, x2 = torch.tensor(list(zip(*comb))).float()
+
+        input = torch.tensor(comb).float()
 
         # s1 = self.layers(x1)
         # s2 = self.layers(x2)
 
-        s1 = self.step(x1)
-        s2 = self.step(x2)
+        # s1 = self.step(x1)
+        # s2 = self.step(x2)
+
+        output = self.step(input)
 
         # for name, param in self.named_parameters():
         #     if param.requires_grad:
         #         print(name, param.data)
-        if torch.isnan(s1).sum().item() or torch.isnan(s2).sum().item():
-            print(s1)
+        if torch.isnan(output).sum().item():
+            print(output)
 
-        return s1, s2
+        return output
 
     def step(self, input):
         for layer in self.layers:
@@ -71,6 +75,17 @@ class RankNet(nn.Module):
                 print(input)
         
         return input
+
+    def loss2(self, labels, input):
+        s1 = input[:,0,:]
+        s2 = input[:,1,:]
+        
+        sig = self.sigma * (s1 - s2)
+        c = 0.5 * (1 - labels.view(-1, 1)) * sig + torch.log(1 + torch.exp(-sig))
+
+        if torch.isnan(c).sum().item():
+            print(c.sum())
+        return c.sum()
 
 
     def loss(self, labels, s1, s2):
@@ -84,7 +99,7 @@ class RankNet(nn.Module):
             elif s1[i] == s2[i]:
                 s[i] = 0
         sig = self.sigma * (s1 - s2)
-        c = 0.5 * (1 - s) * sig + torch.log(1 + torch.exp(-sig))
+        c = 0.5 * (1 - labels) * sig + torch.log(1 + torch.exp(-sig))
 
         if torch.isnan(c).sum().item():
             print(c.sum())
