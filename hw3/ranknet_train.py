@@ -8,6 +8,7 @@ import datetime
 import torch
 import time
 import itertools
+from early_stopping import EarlyStopping
 import matplotlib.pyplot as plt
 
 # CONSTANT PARAMS
@@ -21,9 +22,12 @@ DEFAULT_LEARNING_RATE = 5e-4
 DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
 
-speed_up = True
-
 def main():
+    early_stop = False
+    speed_up = True
+    scores = []
+    steps = []
+
     data = dataset.get_dataset().get_data_folds()[0]
     data.read_data()
 
@@ -31,9 +35,15 @@ def main():
     optimizer = torch.optim.Adam(params=ranknet.parameters(),lr=DEFAULT_LEARNING_RATE)
 
     for epoch in range(1, DEFAULT_EPOCHS+1):
+        if early_stop:
+            break
+
         start = time.time()
         batch_start = time.time()
         for qid in range(data.train.num_queries()):
+            if early_stop:
+                break
+
             train_loss = []
             ranknet.train()
             optimizer.zero_grad()
@@ -55,14 +65,26 @@ def main():
                 optimizer.step()
 
             if qid % PRINT_EVERY == 0:
-                print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (np.mean(train_loss), epoch, qid, data.train.num_queries(), time.time() - batch_start))
+                if speed_up:
+                    print('EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (epoch, qid, data.train.num_queries(), time.time() - batch_start))
+                else:
+
+                    print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (np.mean(train_loss), epoch, qid, data.train.num_queries(), time.time() - batch_start))
                 batch_start = time.time()
         
-            if qid > 0 and qid % DEFAULT_EVALUATION_FREQ == 0 :
-                test_model(ranknet, data, validation=True)
+            if qid % DEFAULT_EVALUATION_FREQ == 0 :
+                early_stop, score = test_model(ranknet, data, validation=True)
+                scores.append(score)
+                steps.append(qid)
+
 
         print('Epoch %i took %f second' % (epoch, time.time() - start))
     test_model(ranknet, data, validation=False)
+    plt.plot(steps, scores, label='RankNet')
+    plt.legend()
+    plt.title('RankNet NDCG scores')
+    plt.show()
+    pass
 
 
 def speed_up_gradient(output, target):
@@ -119,6 +141,17 @@ def get_labels(labels):
 
 
 def test_model(ranknet, data, validation=False):
+    """
+    Test model
+    Returns:    True to keeps training
+                False to early stop
+
+    If the NDCG value does not change more than delta 
+    within the number of patience validations, returns False
+    """
+    early_stopping = EarlyStopping()
+    
+
     ranknet.eval()
     if (validation):
         dataset = data.validation
@@ -127,7 +160,6 @@ def test_model(ranknet, data, validation=False):
 
     total_loss = 0
     validation_scores = torch.tensor([])
-    ndcg_list = []
 
     with torch.no_grad():
         for i in range(dataset.num_queries()):
@@ -142,17 +174,19 @@ def test_model(ranknet, data, validation=False):
                 total_loss += loss.item() / (n * (n - 1) / 2)
 
             validation_scores = torch.cat((validation_scores, output.clone().detach().view(-1)))
+            
 
         results = evl.evaluate(data.validation, validation_scores.numpy())
         print('ndcg:', results['ndcg'])
-        ndcg_list.append(results['ndcg'])
-
         total_loss = total_loss / dataset.num_queries()
+
 
         if (validation):
             print("\n", 'AVG VAL LOSS [{}]'.format(total_loss), "\n")
         else:
             print("\n", 'AVG TEST LOSS [{}]'.format(total_loss), "\n")
+
+    return early_stopping.monitor(results), results['ndcg'][0]
 
 
 if __name__ == '__main__':
