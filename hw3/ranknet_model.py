@@ -7,9 +7,11 @@ class RankNet(nn.Module):
         super(RankNet, self).__init__()
 
         self.layers = nn.Sequential(
-            nn.Linear(input_size, 128),
+            nn.Linear(input_size, 512),
             nn.ReLU(),
-            nn.Linear(128, 256),
+            nn.Linear(512, 2024),
+            nn.ReLU(),
+            nn.Linear(2024, 256),
             nn.ReLU(),
             nn.Linear(256, 64),
             nn.ReLU(),

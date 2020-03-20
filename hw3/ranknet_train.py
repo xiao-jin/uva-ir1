@@ -13,13 +13,13 @@ import matplotlib.pyplot as plt
 # CONSTANT PARAMS
 OUTPUT_SIZE = 1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+PRINT_EVERY = 100
 
 # HYPER PARAMS
-DEFAULT_LEARNING_RATE = 2e-4
+SIGMA = 1
+DEFAULT_LEARNING_RATE = 5e-4
 DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
-SIGMA = 0.9
-PRINT_EVERY = 100
 
 def main():
     data = dataset.get_dataset().get_data_folds()[0]
@@ -31,31 +31,31 @@ def main():
     for epoch in range(1, DEFAULT_EPOCHS+1):
         start = time.time()
         batch_start = time.time()
-        for i in range(data.train.num_queries()):
+        for qid in range(data.train.num_queries()):
             train_loss = []
             ranknet.train()
             optimizer.zero_grad()
 
-            docs = data.train.query_feat(i)
+            docs = data.train.query_feat(qid)
             n = len(docs)
-            input = torch.tensor(docs).float()
-            output = ranknet.forward(input)
 
             if len(docs) >= 2:
-                loss = pairwise_loss(output, data.train.query_labels(i), SIGMA)
+                input = torch.tensor(docs).float()
+                output = ranknet.forward(input)
+
+                loss = pairwise_loss(output, data.train.query_labels(qid), SIGMA)
                 train_loss.append(loss.item() / (n * (n-1) / 2))
                 loss.backward()
                 optimizer.step()
 
-            if i % PRINT_EVERY == 0:
-                print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (np.mean(train_loss), epoch, i, data.train.num_queries(), time.time() - batch_start))
+            if qid % PRINT_EVERY == 0:
+                print('TRAIN LOSS [%.2f] | EPOCH [%d] | BATCH [%d / %d] | %.2f seconds' % (np.mean(train_loss), epoch, qid, data.train.num_queries(), time.time() - batch_start))
                 batch_start = time.time()
         
-            if i > 0 and i % DEFAULT_EVALUATION_FREQ == 0 :
+            if qid % DEFAULT_EVALUATION_FREQ == 0 :
                 test_model(ranknet, data, validation=True)
 
         print('Epoch %i took %f second' % (epoch, time.time() - start))
-
     test_model(ranknet, data, validation=False)
 
 
@@ -105,7 +105,7 @@ def test_model(ranknet, data, validation=False):
 
     total_loss = 0
     validation_scores = torch.tensor([])
-    results_list = []
+    ndcg_list = []
 
     with torch.no_grad():
         for i in range(dataset.num_queries()):
@@ -120,10 +120,10 @@ def test_model(ranknet, data, validation=False):
                 total_loss += loss.item() / (n * (n - 1) / 2)
 
             validation_scores = torch.cat((validation_scores, output.clone().detach().view(-1)))
-        
 
-        results = evl.evaluate(data.validation, validation_scores.numpy(), print_results=True)
-        results_list.append(results)
+        results = evl.evaluate(data.validation, validation_scores.numpy())
+        print('ndcg:', results['ndcg'])
+        ndcg_list.append(results['ndcg'])
 
         total_loss = total_loss / dataset.num_queries()
 
