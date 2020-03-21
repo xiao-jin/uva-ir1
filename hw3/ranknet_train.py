@@ -24,7 +24,7 @@ DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
 
 
-def main():
+def train(data, lr, num_layers, patience, min_delta):
     early_stop = False
     speed_up = False
     ndcg_scores = []
@@ -32,17 +32,14 @@ def main():
     steps = []
     step_counter = 0
 
-    data = dataset.get_dataset().get_data_folds()[0]
-    data.read_data()
-
-    ranknet = RankNet(data.num_features, OUTPUT_SIZE).to(device)
-    optimizer = torch.optim.Adam(params=ranknet.parameters(),lr=DEFAULT_LEARNING_RATE)
+    ranknet = RankNet(data.num_features, OUTPUT_SIZE, num_layers=num_layers).to(device)
+    optimizer = torch.optim.Adam(params=ranknet.parameters(),lr=lr)
 
     num_layers = 0
     for layer in list(ranknet.layers._modules.values())[0:-1]: # exclude the output layer
         num_layers += isinstance(layer, nn.Linear)
 
-    model_name = 'ranknet_layers_%d_speedup_%s_lr_%f' % (num_layers, speed_up ,DEFAULT_LEARNING_RATE)
+    model_name = 'ranknet_layers_%d_speedup_%s_lr_%f' % (num_layers, speed_up, lr)
     early_stopping = EarlyStopping(ranknet, model_name)
 
     for epoch in range(1, DEFAULT_EPOCHS+1):
@@ -62,7 +59,7 @@ def main():
             n = len(docs)
 
             if len(docs) >= 2:
-                input = torch.tensor(docs).float()
+                input = torch.tensor(docs).float().to(device)
                 output = ranknet.forward(input).reshape(-1)
 
                 if speed_up:
@@ -129,7 +126,7 @@ def get_labels(labels):
     s1 = labels[0]
     s2 = labels[1]
 
-    return torch.sign(torch.from_numpy(s1 - s2))
+    return torch.sign(torch.from_numpy(s1 - s2).to(device))
 
 
 def test_model(ranknet, data, early_stopping=None, validation=False):
@@ -145,14 +142,14 @@ def test_model(ranknet, data, early_stopping=None, validation=False):
         dataset = data.test
 
     total_loss = 0
-    validation_scores = torch.tensor([])
+    validation_scores = torch.tensor([]).to(device)
 
     with torch.no_grad():
         for i in range(dataset.num_queries()):
             docs = dataset.query_feat(i)
             n = len(docs)
 
-            input = torch.tensor(docs).float()
+            input = torch.tensor(docs).float().to(device)
             output = ranknet.forward(input).reshape(-1)
             
             if n >= 2:
@@ -161,7 +158,7 @@ def test_model(ranknet, data, early_stopping=None, validation=False):
 
             validation_scores = torch.cat((validation_scores, output.clone().detach().view(-1)))            
 
-        results = evl.evaluate(dataset, validation_scores.numpy())
+        results = evl.evaluate(dataset, validation_scores.cpu() .numpy())
         print('ndcg:', results['ndcg'])
         total_loss = total_loss / dataset.num_queries()
 
@@ -172,5 +169,12 @@ def test_model(ranknet, data, early_stopping=None, validation=False):
             print("\n", 'AVG TEST LOSS [{}]'.format(total_loss), "\n")
             return True, results
 
-if __name__ == '__main__':
-    main()
+data = dataset.get_dataset().get_data_folds()[0]
+data.read_data()
+
+lrs = [1e-2, 1e-3, 1e-4]
+hidden_layers = [2,3,4,5]
+
+for lr in lrs:
+    for layer in hidden_layers:
+        train(data=data, lr=lr, num_layers=layer, patience=10, min_delta=0.001)

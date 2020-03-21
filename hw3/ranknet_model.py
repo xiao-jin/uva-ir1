@@ -3,20 +3,20 @@ import torch.nn as nn
 import torch
 
 class RankNet(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, num_layers):
         super(RankNet, self).__init__()
 
-        self.layers = nn.Sequential(
-            nn.Linear(input_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, 64),
-            nn.ReLU(),
-            nn.Linear(64, output_size),
-        )
+        self.layers = nn.ModuleList()
+        self.layers.append(nn.Linear(input_size, 256))
+        self.layers.append(nn.ReLU())
+
+        for _ in range(num_layers):
+            self.layers.append(nn.Linear(256,256))
+            self.layers.append(nn.ReLU())
+
+        self.layers.append(nn.Linear(256, output_size))
         
     def forward(self, input):
-        return self.layers(input)
+        for layer in self.layers:
+            input = layer(input)
+        return input
