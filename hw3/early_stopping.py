@@ -16,7 +16,7 @@ class EarlyStopping():
                 mode='greater than',
                 metric='ndcg',
                 min_delta=0.01,
-                patience=3):
+                patience=7):
 
         self.mode = mode
         self.metric = metric
@@ -35,15 +35,14 @@ class EarlyStopping():
 
     def monitor(self, results):
         current = results[self.metric][0] #[0] is the mean [1] is stdev
-
-        if (self.mode == 'greater than' and self.best < current) or \
-            (self.mode == 'less than' and self.best > current):
-                self.best = current
-                self.wait = 0
-                return False
-
-
-        if current - self.best < self.min_delta:
+        
+        if self.best < current - self.min_delta:
+            self.best = current
+            self.wait = 0
+            print('EarlyStopping: new best')
+            return False
+        else:
             self.wait += 1
+            print('EarlyStopping: wait %d of %d' % (self.wait, self.patience))
             if self.wait == self.patience:
                 return True

@@ -22,6 +22,8 @@ DEFAULT_LEARNING_RATE = 5e-4
 DEFAULT_EVALUATION_FREQ = 500
 DEFAULT_EPOCHS = 5
 
+early_stopping = EarlyStopping()
+
 def main():
     early_stop = False
     speed_up = True
@@ -84,7 +86,6 @@ def main():
     plt.legend()
     plt.title('RankNet NDCG scores')
     plt.show()
-    pass
 
 
 def speed_up_gradient(output, target):
@@ -149,9 +150,6 @@ def test_model(ranknet, data, validation=False):
     If the NDCG value does not change more than delta 
     within the number of patience validations, returns False
     """
-    early_stopping = EarlyStopping()
-    
-
     ranknet.eval()
     if (validation):
         dataset = data.validation
