@@ -9,9 +9,9 @@ class RankNet(nn.Module):
         self.layers = nn.Sequential(
             nn.Linear(input_size, 512),
             nn.ReLU(),
-            nn.Linear(512, 1024),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(1024, 256),
+            nn.Linear(256, 256),
             nn.ReLU(),
             nn.Linear(256, 64),
             nn.ReLU(),

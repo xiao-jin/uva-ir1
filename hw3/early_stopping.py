@@ -1,3 +1,4 @@
+import torch
 import math
 
 class EarlyStopping():
@@ -13,11 +14,14 @@ class EarlyStopping():
     we choose a very low threshold to stop earlier.
     """
     def __init__(self,
+                model,
+                model_name,
                 mode='greater than',
                 metric='ndcg',
-                min_delta=0.01,
+                min_delta=0.001,
                 patience=7):
-
+        self.model = model
+        self.model_name = model_name
         self.mode = mode
         self.metric = metric
         self.min_delta = min_delta
@@ -40,6 +44,7 @@ class EarlyStopping():
             self.best = current
             self.wait = 0
             print('EarlyStopping: new best')
+            torch.save(self.model, self.model_name)
             return False
         else:
             self.wait += 1
