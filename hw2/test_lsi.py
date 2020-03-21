@@ -60,7 +60,7 @@ def test(mode):
         vec_qry = dictionary.doc2bow(query_text.lower().split())
         
         results = lsi_model[vec_qry]
-        results = [(str(keys[x]), float(y)) for (x, y) in results]
+        results = [(str(doc_keys[x]), float(y)) for (x, y) in results]
         overall_ser[qid] = dict(results)
 
     # run evaluation with `qrels` as the ground truth relevance judgements

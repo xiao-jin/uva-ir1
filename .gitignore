@@ -8,3 +8,9 @@ __pycache__
 *.pkl
 tf-idf.json
 tfidf_index
+*.npy
+*.pt
+*.projection
+*.state
+*.id2word
+*.pyc

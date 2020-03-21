@@ -59,6 +59,9 @@ class TfIdfRetrieval():
                 pkl.dump(index, writer) 
 
     def search(self, query):
+        """
+        return a ranked reuslts
+        """
         query_repr = read_ap.process_text(query)
 
         results = defaultdict(float)
